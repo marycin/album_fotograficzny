@@ -20,7 +20,7 @@ class _HomePageState extends State<HomePage> {
   late final Box<Photo> photosBox;
   late final Box<Album> albumsBox;
 
-  int? selectedAlbumId; // null = wszystkie
+  int? selectedAlbumId;
   PhotoSort sort = PhotoSort.dateDesc;
   bool gridView = true;
 
@@ -155,7 +155,6 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text(currentAlbumName),
         actions: [
-          // WYSZUKIWANIE
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () async {
@@ -170,7 +169,6 @@ class _HomePageState extends State<HomePage> {
               if (result != null && mounted) setState(() {});
             },
           ),
-          // SORTOWANIE
           PopupMenuButton<String>(
             tooltip: 'Sortuj',
             onSelected: (v) => setState(() {
@@ -181,7 +179,6 @@ class _HomePageState extends State<HomePage> {
               PopupMenuItem(value: 'title', child: Text('Sortuj wg nazwy (A→Z)')),
             ],
           ),
-          // GRID / LIST
           IconButton(
             tooltip: gridView ? 'Widok listy' : 'Widok siatki',
             icon: Icon(gridView ? Icons.list : Icons.grid_view),
@@ -261,7 +258,6 @@ class _HomePageState extends State<HomePage> {
           }
 
           if (!gridView) {
-            // LISTA
             return ListView.separated(
               padding: const EdgeInsets.all(8),
               itemCount: items.length,
@@ -289,8 +285,6 @@ class _HomePageState extends State<HomePage> {
               },
             );
           }
-
-          // SIATKA
           return Padding(
             padding: const EdgeInsets.all(16),
             child: GridView.builder(
@@ -350,7 +344,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// Wyszukiwarka zdjęć w aktualnym albumie
 class _PhotoSearchDelegate extends SearchDelegate<String?> {
   _PhotoSearchDelegate({
     required this.source,

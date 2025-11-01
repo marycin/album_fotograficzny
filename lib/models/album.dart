@@ -18,7 +18,6 @@ class Album {
   });
 }
 
-/// Ręczny adapter (bez build_runner).
 class AlbumAdapter extends TypeAdapter<Album> {
   @override
   final int typeId = 1;

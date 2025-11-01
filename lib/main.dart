@@ -14,8 +14,6 @@ Future<void> main() async {
   await Hive.openBox<Photo>('photos');
   await Hive.openBox<Album>('albums');
 
-  // Upewnij się, że istnieje album domyślny (ID = 0),
-  // do którego trafią stare rekordy bez albumId.
   final albumsBox = Hive.box<Album>('albums');
   if (!albumsBox.containsKey(0)) {
     albumsBox.put(

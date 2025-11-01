@@ -7,8 +7,8 @@ import '../models/album.dart';
 import '../utils/file_utils.dart';
 
 class EditPhotoPage extends StatefulWidget {
-  final dynamic photoKey;     // null -> dodawanie, != null -> edycja
-  final int? defaultAlbumId;  // album z widoku głównego
+  final dynamic photoKey;
+  final int? defaultAlbumId;
 
   const EditPhotoPage({super.key, this.photoKey, this.defaultAlbumId});
 
@@ -31,17 +31,14 @@ class _EditPhotoPageState extends State<EditPhotoPage> {
     _photosBox = Hive.box<Photo>('photos');
     _albumsBox = Hive.box<Album>('albums');
 
-    // Domyślny album
     _albumId = widget.defaultAlbumId ?? _albumsBox.values.first.id;
 
-    // Wczytaj dane do edycji
     if (widget.photoKey != null) {
       final photo = _photosBox.get(widget.photoKey);
       if (photo != null) {
         _titleCtrl.text = photo.title;
         _descCtrl.text = photo.description;
         _albumId = photo.albumId;
-        // nie ładujemy obrazu jako File – zostawimy jego path, chyba że user wybierze nowy
       }
     }
   }

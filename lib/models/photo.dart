@@ -15,7 +15,7 @@ class Photo {
   DateTime createdAt;
 
   @HiveField(4)
-  int albumId; // NOWE
+  int albumId;
 
   Photo({
     required this.imagePath,
@@ -26,7 +26,6 @@ class Photo {
   });
 }
 
-/// Ręcznie napisany adapter (bez build_runner).
 class PhotoAdapter extends TypeAdapter<Photo> {
   @override
   final int typeId = 0;
@@ -38,7 +37,6 @@ class PhotoAdapter extends TypeAdapter<Photo> {
       for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
 
-    // Backward compatibility: jeśli stare rekordy mają tylko 4 pola.
     final int albumId =
     (fields.containsKey(4) && fields[4] != null) ? fields[4] as int : 0;
 

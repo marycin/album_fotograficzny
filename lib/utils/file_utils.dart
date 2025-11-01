@@ -21,8 +21,6 @@ class FileUtils {
       if (await f.exists()) {
         await f.delete();
       }
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
   }
 }
