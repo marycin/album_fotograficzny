@@ -1,35 +1,48 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:hive/hive.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/photo.dart';
+import '../models/album.dart';
 import '../utils/file_utils.dart';
 
 class EditPhotoPage extends StatefulWidget {
-  final int? photoKey; // jeśli null -> dodawanie, jeśli nie -> edycja
+  final dynamic photoKey;     // null -> dodawanie, != null -> edycja
+  final int? defaultAlbumId;  // album z widoku głównego
 
-  const EditPhotoPage({super.key, this.photoKey});
+  const EditPhotoPage({super.key, this.photoKey, this.defaultAlbumId});
 
   @override
   State<EditPhotoPage> createState() => _EditPhotoPageState();
 }
 
 class _EditPhotoPageState extends State<EditPhotoPage> {
-  final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  File? _pickedImage;
+  int? _albumId;
 
-  String? _imagePath;
+  late final Box<Photo> _photosBox;
+  late final Box<Album> _albumsBox;
 
   @override
   void initState() {
     super.initState();
+    _photosBox = Hive.box<Photo>('photos');
+    _albumsBox = Hive.box<Album>('albums');
+
+    // Domyślny album
+    _albumId = widget.defaultAlbumId ?? _albumsBox.values.first.id;
+
+    // Wczytaj dane do edycji
     if (widget.photoKey != null) {
-      final box = Hive.box<Photo>('photos');
-      final photo = box.get(widget.photoKey)!;
-      _imagePath = photo.imagePath;
-      _titleCtrl.text = photo.title;
-      _descCtrl.text = photo.description;
+      final photo = _photosBox.get(widget.photoKey);
+      if (photo != null) {
+        _titleCtrl.text = photo.title;
+        _descCtrl.text = photo.description;
+        _albumId = photo.albumId;
+        // nie ładujemy obrazu jako File – zostawimy jego path, chyba że user wybierze nowy
+      }
     }
   }
 
@@ -42,120 +55,103 @@ class _EditPhotoPageState extends State<EditPhotoPage> {
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source, imageQuality: 90);
-    if (picked == null) return;
-
-    final savedPath = await FileUtils.saveImageToAppDir(File(picked.path));
-    setState(() {
-      _imagePath = savedPath;
-    });
+    final picked = await picker.pickImage(source: source, imageQuality: 85);
+    if (picked != null) {
+      setState(() => _pickedImage = File(picked.path));
+    }
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_imagePath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Wybierz zdjęcie')),
-      );
+    if (_albumId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wybierz album')));
       return;
     }
 
-    final box = Hive.box<Photo>('photos');
+    String imagePath;
+    if (_pickedImage != null) {
+      imagePath = await FileUtils.saveImageToAppDir(_pickedImage!);
+    } else if (widget.photoKey != null) {
+      imagePath = _photosBox.get(widget.photoKey)!.imagePath;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wybierz zdjęcie')));
+      return;
+    }
+
     final photo = Photo(
-      imagePath: _imagePath!,
-      title: _titleCtrl.text.trim(),
+      imagePath: imagePath,
+      title: _titleCtrl.text.trim().isEmpty ? 'Bez tytułu' : _titleCtrl.text.trim(),
       description: _descCtrl.text.trim(),
       createdAt: DateTime.now(),
+      albumId: _albumId!,
     );
 
     if (widget.photoKey == null) {
-      await box.add(photo);
+      await _photosBox.add(photo);
     } else {
-      await box.put(widget.photoKey, photo);
+      await _photosBox.put(widget.photoKey, photo);
     }
 
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.photoKey != null;
+    final albums = _albumsBox.values.toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEdit ? 'Edytuj zdjęcie' : 'Dodaj zdjęcie'),
-      ),
-      body: SingleChildScrollView(
+      appBar: AppBar(title: Text(widget.photoKey == null ? 'Dodaj zdjęcie' : 'Edytuj zdjęcie')),
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
+        children: [
+          DropdownButtonFormField<int>(
+            value: _albumId,
+            decoration: const InputDecoration(labelText: 'Album'),
+            items: [
+              for (final a in albums) DropdownMenuItem<int>(value: a.id, child: Text(a.name)),
+            ],
+            onChanged: (v) => setState(() => _albumId = v),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _titleCtrl,
+            decoration: const InputDecoration(labelText: 'Tytuł'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _descCtrl,
+            decoration: const InputDecoration(labelText: 'Opis'),
+            maxLines: 3,
+          ),
+          const SizedBox(height: 12),
+          if (_pickedImage != null)
+            AspectRatio(
+              aspectRatio: 1,
+              child: Image.file(_pickedImage!, fit: BoxFit.cover),
+            ),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              AspectRatio(
-                aspectRatio: 1.5,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _imagePath != null &&
-                          File(_imagePath!).existsSync()
-                      ? Image.file(File(_imagePath!), fit: BoxFit.cover)
-                      : const Center(child: Text('Brak zdjęcia')),
-                ),
+              OutlinedButton.icon(
+                onPressed: () => _pickImage(ImageSource.gallery),
+                icon: const Icon(Icons.photo),
+                label: const Text('Galeria'),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _pickImage(ImageSource.gallery),
-                      icon: const Icon(Icons.photo_library),
-                      label: const Text('Galeria'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _pickImage(ImageSource.camera),
-                      icon: const Icon(Icons.photo_camera),
-                      label: const Text('Aparat'),
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () => _pickImage(ImageSource.camera),
+                icon: const Icon(Icons.photo_camera),
+                label: const Text('Aparat'),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Tytuł',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Podaj tytuł' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _descCtrl,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Opis',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.save),
-                  label: Text(isEdit ? 'Zapisz zmiany' : 'Dodaj'),
-                ),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save),
+                label: const Text('Zapisz'),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

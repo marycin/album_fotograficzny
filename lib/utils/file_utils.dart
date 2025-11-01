@@ -3,16 +3,26 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 class FileUtils {
-  static Future<String> saveImageToAppDir(File sourceFile) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final photosDir = Directory(p.join(appDir.path, 'photos'));
-    if (!await photosDir.exists()) {
-      await photosDir.create(recursive: true);
+  static Future<String> saveImageToAppDir(File src) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory(p.join(dir.path, 'images'));
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
     }
-    final fileName =
-        'photo_${DateTime.now().millisecondsSinceEpoch}${p.extension(sourceFile.path)}';
-    final newPath = p.join(photosDir.path, fileName);
-    final newFile = await sourceFile.copy(newPath);
-    return newFile.path;
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}${p.extension(src.path)}';
+    final dstPath = p.join(imagesDir.path, fileName);
+    await src.copy(dstPath);
+    return dstPath;
+  }
+
+  static Future<void> deleteImageIfExists(String path) async {
+    try {
+      final f = File(path);
+      if (await f.exists()) {
+        await f.delete();
+      }
+    } catch (_) {
+      // ignore
+    }
   }
 }
